@@ -4,11 +4,42 @@
 		<meta charset="UTF-8">
 		<title>AOBench Parallel</title>
 		<script type="text/javascript" src="ao-parallel.js"></script>
+		
+		<style type="text/css">
+			body {
+				text-align: center;
+				background: #eee;
+			}
+			
+			h1 {
+				margin-top: 2em;
+				color: #555;
+				font-size: 16px;
+				text-shadow: 0 1px 0 #fff;
+			}
+			
+			canvas {
+				background-color: #ddd;
+				border: 1px solid #fff;
+				box-shadow: 0 1px 1px 1px #aaa;
+			}
+			
+			#result-out {
+				opacity: 0;
+				position: relative;
+				top: -15px;
+				font-size: 11px;
+				-moz-transition: all 0.4s;
+				-webkit-transition: all 0.4s;
+				transition: all 0.4s;
+			}
+		</style>
 	</head>
 
 	<body onload="void launch();">
-		<button id="start-btn">Start</button><br>
-		<canvas id="out-canvas"></canvas>
+		<h1>AOBench with ParallelArray</h1>
+		<canvas id="out-canvas"></canvas><br>
+		<button id="start-btn">Normal(Sequential)</button> <button id="par-start-btn">Use ParallelArray</button>
 		<div id="result-out"> </div>
 	</body>
 </html>

@@ -148,7 +148,7 @@
 	}
 
 
-	function ambientOcclusion(col, isect, rsTempVec, aoRayTemp, aoOrgTemp, aoIsectTemp, basisTemp) {
+	function ambientOcclusion(scn, col, isect, rsTempVec, aoRayTemp, aoOrgTemp, aoIsectTemp, basisTemp) {
 		var i, j;
 		var ntheta = NAO_SAMPLES;
 		var nphi   = NAO_SAMPLES;
@@ -194,10 +194,10 @@
 				occIsect.hit = false;
 
 				// Cast a ray
-				raySphereIntersect(occIsect, ray, gScene.spheres[0], rsTempVec);
-				raySphereIntersect(occIsect, ray, gScene.spheres[1], rsTempVec);
-				raySphereIntersect(occIsect, ray, gScene.spheres[2], rsTempVec);
-				rayPlaneIntersect (occIsect, ray, gScene.plane);
+				raySphereIntersect(occIsect, ray, scn.spheres[0], rsTempVec);
+				raySphereIntersect(occIsect, ray, scn.spheres[1], rsTempVec);
+				raySphereIntersect(occIsect, ray, scn.spheres[2], rsTempVec);
+				rayPlaneIntersect (occIsect, ray, scn.plane);
 				if (occIsect.hit) occlusion += 1.0;
 			}
 		}
@@ -244,17 +244,6 @@
 	    plane.n.z = 0.0;
 	
 		return scn;
-	}
-	
-	function copyScene(src) {
-		var dest = {};
-		for (var i in src) {
-			if (src.hasOwnProperty(i)) {
-				dest[i] = src[i];
-			}
-		}
-		
-		return dest;
 	}
 	
 	function render(img, w, h, nsubsamples)
@@ -304,7 +293,7 @@
 
 						if (isect.hit) {
 							// Do secondary ray tracing
-							ambientOcclusion(col, isect, rsTempVec, aoRayTemp, aoOrgTemp, aoIsectTemp, basisTemp);
+							ambientOcclusion(gScene, col, isect, rsTempVec, aoRayTemp, aoOrgTemp, aoIsectTemp, basisTemp);
 
 							fimg[3 * (y * w + x) + 0] += col.x;
 							fimg[3 * (y * w + x) + 1] += col.y;
@@ -346,27 +335,52 @@
 	
 	// Main
 	window.launch = function() {
-		function startAO() {
-			var outCanvas = document.getElementById("out-canvas");
+		var outCanvas = document.getElementById("out-canvas");
+		outCanvas.width  = WIDTH;
+		outCanvas.height = HEIGHT;
+		
+		function startAO(par) {
 			var g = outCanvas.getContext("2d");
-			outCanvas.width  = WIDTH;
-			outCanvas.height = HEIGHT;
 		
 			var img = allocateBytes(WIDTH * HEIGHT * 3);
 			gScene = initScene();
-			render(img, WIDTH, HEIGHT, NSUBSAMPLES);
+			
+			if (!par)
+				render(img, WIDTH, HEIGHT, NSUBSAMPLES);
+			else
+				parRender(img, WIDTH, HEIGHT, NSUBSAMPLES);
 		
 			emitToCanvas(g, img, WIDTH, HEIGHT);
 		}
 		
 		var btn = document.getElementById("start-btn");
-		btn.disabled = false;
+		var par_btn = document.getElementById("par-start-btn");
+		
+		function buttonHandler(par) {
+			setTimeout(function() {
+				var startT = new Date();
+				startAO(par);
+				
+				var rout = document.getElementById("result-out");
+				rout.innerHTML = "Parallel: " + (par ? "Yes" : "No") + "<br>" +(new Date() - startT) + " ms - " + 
+				                 WIDTH+"x"+HEIGHT+" px, "+NSUBSAMPLES+"x"+NSUBSAMPLES+" subsamples";
+				
+				setTimeout(function() {
+					rout.style.opacity = 1;
+					rout.style.top = "10px";
+				}, 100);
+			}, 50);
+
+			btn.style.display = "none";
+			par_btn.style.display = "none";
+		}
+		
 		btn.addEventListener('click', function() {
-			btn.disabled = true;
-			var startT = new Date();
-			startAO();
-			document.getElementById("result-out").innerHTML = (new Date() - startT) + " ms - " + 
-			                                                  WIDTH+"x"+HEIGHT+" px, "+NSUBSAMPLES+"x"+NSUBSAMPLES+" subsamples";
+			buttonHandler(false);
+		}, false);
+
+		par_btn.addEventListener('click', function() {
+			buttonHandler(true);
 		}, false);
 	};
 	
@@ -385,7 +399,7 @@
 	
 	function parRender(img, w, h, nsubsamples)
 	{
-		var pArray = makeParallelRenderArray(w * nsubsamples * nsubsamples);
+		var pArray = makeParallelRenderArray(w * nsubsamples * nsubsamples, gScene);
 	    var x, y, i;
 	    var u, v;
 
@@ -395,19 +409,19 @@
 			var isect = elem.isect;
 			var work = elem.workArea;
 			var rsTempVec = work.rsVec;
+			var scn = elem.scene;
 			
-			raySphereIntersect(isect, elem.ray, gScene.spheres[0], rsTempVec);
-			raySphereIntersect(isect, elem.ray, gScene.spheres[1], rsTempVec);
-			raySphereIntersect(isect, elem.ray, gScene.spheres[2], rsTempVec);
-			rayPlaneIntersect (isect, elem.ray, gScene.plane);
+			raySphereIntersect(isect, elem.ray, scn.spheres[0], rsTempVec);
+			raySphereIntersect(isect, elem.ray, scn.spheres[1], rsTempVec);
+			raySphereIntersect(isect, elem.ray, scn.spheres[2], rsTempVec);
+			rayPlaneIntersect (isect, elem.ray, scn.plane);
 			
 			if (isect.hit) {
-				ambientOcclusion(elem.color, isect, rsTempVec, work.aoRay, work.aoOrg, work.aoIsect, work.aoBasis);
+				ambientOcclusion(scn, elem.color, isect, rsTempVec, work.aoRay, work.aoOrg, work.aoIsect, work.aoBasis);
 			} 
 			
 			return elem;
 		}
-
 
 		for (y = 0; y < h; ++y) {
 			// Setup rays
@@ -467,7 +481,7 @@
 		}
 	}
 	
-	function makeParallelRenderArray(length) {
+	function makeParallelRenderArray(length, scene) {
 		// Setup elements
 		var elements = new Array(length);
 		for (var i = 0;i < length;++i) {
@@ -475,6 +489,7 @@
 				ray: new Ray(),
 				isect: new Isect(),
 				color: new Vec(),
+				scene: scene,
 				workArea: {
 					rsVec: new Vec(),
 					aoRay: new Ray(),
@@ -485,7 +500,12 @@
 			};
 		}
 		
-		var pa = new ParallelArray(elements);
+		try {
+			var pa = new ParallelArray(elements);
+		} catch(e) {
+			alert("Your browser does not support ParallelArray.");
+			return null;
+		}
 		return pa;
 	}
 
