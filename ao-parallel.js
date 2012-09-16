@@ -438,7 +438,7 @@
 		var vec = createVec();
 	    var fimg = allocateFloats(w * h * 3);
 		function parRaytrace(elem) {
-			var scene = []
+//			var scn1 = elem[]
 			/*
 			throw 0;
 			var isect = elem.isect;
@@ -506,8 +506,15 @@
 				
 			} // end line
 //console.log(paPos, w * nsubsamples * nsubsamples * 84)
-			var parArray = new ParallelArray(paSource);
-			var paResults = parArray.map(parRaytrace);
+	//		var parArray = new ParallelArray(paSource);
+			var parArray = new ParallelArray([[0, 1], [2, 3]]);
+			var paResults = parArray.combine(function(i){
+				var j = this.get(i);
+				var k = j[0] + 1;
+				var l = j[1] + 1;
+				return [k, l];
+			})
+			console.log(parArray, paResults);
 			throw 456;
 			
 			var paPos = 0;
