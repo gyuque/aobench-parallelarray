@@ -70,10 +70,8 @@
 	};
 	
 	// Hit tests
-	
-	var _tempVec = new Vec();
-	function raySphereIntersect(isect, ray, sphere) {
-		var rs = _tempVec;
+	function raySphereIntersect(isect, ray, sphere, tempVec) {
+		var rs = tempVec;
 		
 		rs.x = ray.org.x - sphere.center.x;
 		rs.y = ray.org.y - sphere.center.y;
@@ -149,22 +147,19 @@
 	    basis[1].normalize();
 	}
 
-	var _aoRayTemp = new Ray();
-	var _aoOrgTemp = new Vec();
-	var _aoIsectTemp = new Isect();
-	var _basisTemp = [new Vec(), new Vec(), new Vec()];
-	function ambientOcclusion(col, isect) {
+
+	function ambientOcclusion(col, isect, rsTempVec, aoRayTemp, aoOrgTemp, aoIsectTemp, basisTemp) {
 		var i, j;
 		var ntheta = NAO_SAMPLES;
 		var nphi   = NAO_SAMPLES;
 		var eps = 0.0001;
 
-		var p = _aoOrgTemp;
+		var p = aoOrgTemp;
 		p.x = isect.p.x + eps * isect.n.x;
 		p.y = isect.p.y + eps * isect.n.y;
 		p.z = isect.p.z + eps * isect.n.z;
 		
-		var basis = _basisTemp;
+		var basis = basisTemp;
 		orthoBasis(basis, isect.n);
 		
 		var occlusion = 0.0;
@@ -186,7 +181,7 @@
 				var ry = x * basis[0].y + y * basis[1].y + z * basis[2].y;
 				var rz = x * basis[0].z + y * basis[1].z + z * basis[2].z;
 				
-				var ray = _aoRayTemp;
+				var ray = aoRayTemp;
 				ray.org.x = p.x;
 				ray.org.y = p.y;
 				ray.org.z = p.z;
@@ -194,14 +189,14 @@
 				ray.dir.y = ry;
 				ray.dir.z = rz;
 				
-				var occIsect = _aoIsectTemp;
+				var occIsect = aoIsectTemp;
 				occIsect.t   = 1.0e+17;
 				occIsect.hit = false;
 
 				// Cast a ray
-				raySphereIntersect(occIsect, ray, gScene.spheres[0]);
-				raySphereIntersect(occIsect, ray, gScene.spheres[1]);
-				raySphereIntersect(occIsect, ray, gScene.spheres[2]);
+				raySphereIntersect(occIsect, ray, gScene.spheres[0], rsTempVec);
+				raySphereIntersect(occIsect, ray, gScene.spheres[1], rsTempVec);
+				raySphereIntersect(occIsect, ray, gScene.spheres[2], rsTempVec);
 				rayPlaneIntersect (occIsect, ray, gScene.plane);
 				if (occIsect.hit) occlusion += 1.0;
 			}
@@ -251,8 +246,26 @@
 		return scn;
 	}
 	
+	function copyScene(src) {
+		var dest = {};
+		for (var i in src) {
+			if (src.hasOwnProperty(i)) {
+				dest[i] = src[i];
+			}
+		}
+		
+		return dest;
+	}
+	
 	function render(img, w, h, nsubsamples)
 	{
+		// Work areas (to suppress mass allocation)
+		var rsTempVec = new Vec();
+		var aoRayTemp = new Ray();
+		var aoOrgTemp = new Vec();
+		var aoIsectTemp = new Isect();
+		var basisTemp = [new Vec(), new Vec(), new Vec()];
+
 		var col = new Vec();
 	    var x, y;
 	    var u, v;
@@ -284,14 +297,14 @@
 						isect.hit = false;
 						
 						// Cast the primary ray
-						raySphereIntersect(isect, ray, gScene.spheres[0]);
-						raySphereIntersect(isect, ray, gScene.spheres[1]);
-						raySphereIntersect(isect, ray, gScene.spheres[2]);
+						raySphereIntersect(isect, ray, gScene.spheres[0], rsTempVec);
+						raySphereIntersect(isect, ray, gScene.spheres[1], rsTempVec);
+						raySphereIntersect(isect, ray, gScene.spheres[2], rsTempVec);
 						rayPlaneIntersect (isect, ray, gScene.plane);
 
 						if (isect.hit) {
 							// Do secondary ray tracing
-							ambientOcclusion(col, isect);
+							ambientOcclusion(col, isect, rsTempVec, aoRayTemp, aoOrgTemp, aoIsectTemp, basisTemp);
 
 							fimg[3 * (y * w + x) + 0] += col.x;
 							fimg[3 * (y * w + x) + 1] += col.y;
@@ -347,6 +360,7 @@
 		}
 		
 		var btn = document.getElementById("start-btn");
+		btn.disabled = false;
 		btn.addEventListener('click', function() {
 			btn.disabled = true;
 			var startT = new Date();
@@ -371,18 +385,42 @@
 	
 	function parRender(img, w, h, nsubsamples)
 	{
-		var col = new Vec();
-	    var x, y;
+		var pArray = makeParallelRenderArray(w * nsubsamples * nsubsamples);
+	    var x, y, i;
 	    var u, v;
 
-		var ray = new Ray();
-		var isect = new Isect();
 	    var fimg = allocateFloats(w * h * 3);
+	
+		function parCastRays(elem, src, index) {
+			var isect = elem.isect;
+			var work = elem.workArea;
+			var rsTempVec = work.rsVec;
+			
+			raySphereIntersect(isect, elem.ray, gScene.spheres[0], rsTempVec);
+			raySphereIntersect(isect, elem.ray, gScene.spheres[1], rsTempVec);
+			raySphereIntersect(isect, elem.ray, gScene.spheres[2], rsTempVec);
+			rayPlaneIntersect (isect, elem.ray, gScene.plane);
+			
+			if (isect.hit) {
+				ambientOcclusion(elem.color, isect, rsTempVec, work.aoRay, work.aoOrg, work.aoIsect, work.aoBasis);
+			} 
+			
+			return elem;
+		}
+
 
 		for (y = 0; y < h; ++y) {
+			// Setup rays
+			var paPos = 0;
 			for (x = 0; x < w; ++x) {
 				for (v = 0; v < nsubsamples; ++v) {
 	                for (u = 0; u < nsubsamples; ++u) {
+						var paElement = pArray[paPos++];
+						var ray = paElement.ray;
+						var isect = paElement.isect;
+						var col = paElement.color;
+						col.x = col.y = col.z = 0;
+
 						// Make normalized coordinate
 						var px = (x + (u / nsubsamples) - (w / 2.0)) / (w / 2.0);
 						var py = -(y + (v / nsubsamples) - (h / 2.0)) / (h / 2.0);
@@ -400,34 +438,55 @@
 						
 						isect.t   = 1.0e+17;
 						isect.hit = false;
-						
-						// Cast the primary ray
-						raySphereIntersect(isect, ray, gScene.spheres[0]);
-						raySphereIntersect(isect, ray, gScene.spheres[1]);
-						raySphereIntersect(isect, ray, gScene.spheres[2]);
-						rayPlaneIntersect (isect, ray, gScene.plane);
-
-						if (isect.hit) {
-							// Do secondary ray tracing
-							ambientOcclusion(col, isect);
-
-							fimg[3 * (y * w + x) + 0] += col.x;
-							fimg[3 * (y * w + x) + 1] += col.y;
-							fimg[3 * (y * w + x) + 2] += col.z;
-						}
 					}
 				}
 				
+			} // end line
+
+			var paResults = pArray.map(parCastRays);
+			
+			var paPos = 0;
+			for (x = 0; x < w; ++x) {
+				var n2 = nsubsamples * nsubsamples;
+				for (var i = 0;i < n2;++i) {
+					var outCol = paResults[paPos++].color;
+					fimg[3 * (y * w + x) + 0] += outCol.x;
+					fimg[3 * (y * w + x) + 1] += outCol.y;
+					fimg[3 * (y * w + x) + 2] += outCol.z;
+				}
+
 				var bufpos = 3 * (y * w + x);
-				fimg[bufpos + 0] /= nsubsamples * nsubsamples;
-				fimg[bufpos + 1] /= nsubsamples * nsubsamples;
-				fimg[bufpos + 2] /= nsubsamples * nsubsamples;
+				fimg[bufpos + 0] /= n2;
+				fimg[bufpos + 1] /= n2;
+				fimg[bufpos + 2] /= n2;
 				
 				img[bufpos + 0] = fimg[bufpos + 0] * 255;
 				img[bufpos + 1] = fimg[bufpos + 1] * 255;
 				img[bufpos + 2] = fimg[bufpos + 2] * 255;
 			}
 		}
+	}
+	
+	function makeParallelRenderArray(length) {
+		// Setup elements
+		var elements = new Array(length);
+		for (var i = 0;i < length;++i) {
+			elements[i] = {
+				ray: new Ray(),
+				isect: new Isect(),
+				color: new Vec(),
+				workArea: {
+					rsVec: new Vec(),
+					aoRay: new Ray(),
+					aoOrg: new Vec(),
+					aoIsect: new Isect(),
+					aoBasis: [new Vec(), new Vec(), new Vec()]
+				}
+			};
+		}
+		
+		var pa = new ParallelArray(elements);
+		return pa;
 	}
 
 })();
