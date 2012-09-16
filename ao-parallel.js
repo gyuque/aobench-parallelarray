@@ -1,5 +1,5 @@
 (function() {
-	'use strict';
+	//'use strict';
 	// ++++ Original version ++++
 	
 	// Function shortcuts
@@ -17,17 +17,40 @@
 	
 	var gScene = null;
 	
+	
 	// Geometries ---------------------------------
+	/*
 	function Vec() {
 		this.x = 0;
 		this.y = 0;
 		this.z = 0;
 	}
-	
-	function vdot(v0, v1) {
-		return v0.x * v1.x + v0.y * v1.y + v0.z * v1.z;
+	*/
+	function createVec() {
+		return [0, 0, 0,  0];
 	}
 	
+	function vdot(a, b) {
+		return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+	}
+	
+	function vnormalize(v) {
+		var length = sqrt(vdot(v, v));
+
+		if (fabs(length) > 1.0e-17) {
+			v[0] /= length;
+			v[1] /= length;
+			v[2] /= length;
+		}
+	}
+	
+	function vcross(vOut, v0, v1) {
+		vOut[0] = v0[1] * v1[2] - v0[2] * v1[1];
+		vOut[1] = v0[2] * v1[0] - v0[0] * v1[2];
+		vOut[2] = v0[0] * v1[1] - v0[1] * v1[0];
+	}
+
+/*	
 	Vec.prototype = {
 		normalize: function() {
 			var length = sqrt(vdot(this, this));
@@ -55,8 +78,28 @@
 		this.p = new Vec(); // position
 		this.n = new Vec(); // normal
 	}
+	*/
+	
+	function createSphere(x, y, z, r) {
+		return [x, y, z, r];
+	}
 	
 	// Rendering informations -----------------------
+	function creataRay() {
+		return [
+			createVec(), // origin position
+			createVec()  // normal
+		]
+	}
+	
+	function createIsect() {
+		return [
+			createVec(), // position
+			createVec(), // normal
+			createVec()  // distance, flag
+		];
+	}
+	/*
 	function Ray() {
 		this.org = new Vec();
 		this.dir = new Vec();
@@ -68,100 +111,109 @@
 		this.n = new Vec(); // normal
 		this.hit = false; // hit flag
 	};
+	*/
 	
 	// Hit tests
-	function raySphereIntersect(isect, ray, sphere, tempVec) {
+	function raySphereIntersect(isectPos, isectN, isectF, rayPos, rayDir, sphere, tempVec) {
+		var sphereR = sphere[3];
 		var rs = tempVec;
 		
-		rs.x = ray.org.x - sphere.center.x;
-		rs.y = ray.org.y - sphere.center.y;
-		rs.z = ray.org.z - sphere.center.z;
-		var B = vdot(rs, ray.dir);
-		var C = vdot(rs, rs) - sphere.radius * sphere.radius;
+		rs[0] = rayPos[0] - sphere[0];
+		rs[1] = rayPos[1] - sphere[1];
+		rs[2] = rayPos[2] - sphere[2];
+		var B = vdot(rs, rayDir);
+		var C = vdot(rs, rs) - sphereR * sphereR;
 		var D = B * B - C;
 
 		if (D > 0.0) {
 			var t = -B - sqrt(D);
-			
-			if ((t > 0.0) && (t < isect.t)) {
-				isect.t = t;
-				isect.hit = true;
+			if ((t > 0.0) && (t < isectF[0])) {
+				isectF[0] = t;
+				isectF[1] = 1;
 
-				isect.p.x = ray.org.x + ray.dir.x * t;
-				isect.p.y = ray.org.y + ray.dir.y * t;
-				isect.p.z = ray.org.z + ray.dir.z * t;
+				isectPos[0] = rayPos[0] + rayDir[0] * t;
+				isectPos[1] = rayPos[1] + rayDir[1] * t;
+				isectPos[2] = rayPos[2] + rayDir[2] * t;
 
-				isect.n.x = isect.p.x - sphere.center.x;
-				isect.n.y = isect.p.y - sphere.center.y;
-				isect.n.z = isect.p.z - sphere.center.z;
+				isectN[0] = isectPos[0] - sphere[0];
+				isectN[1] = isectPos[1] - sphere[1];
+				isectN[2] = isectPos[2] - sphere[2];
 
-				isect.n.normalize();
+				vnormalize(isectN);
 			}
 		}
 	}
 	
-	function rayPlaneIntersect(isect, ray, plane)
+	function rayPlaneIntersect(isectPos, isectN, isectF, rayPos, rayDir, planePos, planeN)
 	{
-		var d = -vdot(plane.p, plane.n);
-		var v = vdot(ray.dir, plane.n);
+		var d = -vdot(planePos, planeN);
+		var v = vdot(rayDir, planeN);
+//console.log()
 
 		if (fabs(v) < 1.0e-17) return;
 
-		var t = -(vdot(ray.org, plane.n) + d) / v;
+		var t = -(vdot(rayPos, planeN) + d) / v;
+		if ((t > 0.0) && (t < isectF[0])) {
+			isectF[0] = t;
+			isectF[1] = 1;
 
-		if ((t > 0.0) && (t < isect.t)) {
-			isect.t = t;
-			isect.hit = true;
+			isectPos[0] = rayPos[0] + rayDir[0] * t;
+			isectPos[1] = rayPos[1] + rayDir[1] * t;
+			isectPos[2] = rayPos[2] + rayDir[2] * t;
 
-			isect.p.x = ray.org.x + ray.dir.x * t;
-			isect.p.y = ray.org.y + ray.dir.y * t;
-			isect.p.z = ray.org.z + ray.dir.z * t;
-
-			isect.n.x = plane.n.x;
-			isect.n.y = plane.n.y;
-			isect.n.z = plane.n.z;
+			isectN[0] = planeN[0];
+			isectN[1] = planeN[1];
+			isectN[2] = planeN[2];
 		}
 	}
 
 	// Renderer functions
 
-	function orthoBasis(basis, n)
+	function orthoBasis(basisX, basisY, basisZ, n)
 	{
-		basis[2] = n;
-		basis[1].x = 0.0; basis[1].y = 0.0; basis[1].z = 0.0;
+		basisZ[0] = n[0];
+		basisZ[1] = n[1];
+		basisZ[2] = n[2];
+		
+		basisY[0] = 0.0; basisY[1] = 0.0; basisY[2] = 0.0;
 
-		if ((n.x < 0.6) && (n.x > -0.6)) {
-			basis[1].x = 1.0;
-	    } else if ((n.y < 0.6) && (n.y > -0.6)) {
-			basis[1].y = 1.0;
-	    } else if ((n.z < 0.6) && (n.z > -0.6)) {
-			basis[1].z = 1.0;
+		if ((n[0] < 0.6) && (n[0] > -0.6)) {
+			basisY[0] = 1.0;
+	    } else if ((n[1] < 0.6) && (n[1] > -0.6)) {
+			basisY[1] = 1.0;
+	    } else if ((n[2] < 0.6) && (n[2] > -0.6)) {
+			basisY[2] = 1.0;
 	    } else {
-			basis[1].x = 1.0;
+			basisY[0] = 1.0;
 	    }
 
-	    basis[0].cross(basis[1], basis[2]);
-	    basis[0].normalize();
+		vcross(basisX, basisY, basisZ);
+		vnormalize(basisX);
 
-	    basis[1].cross(basis[2], basis[0]);
-	    basis[1].normalize();
+		vcross(basisY, basisZ, basisX);
+		vnormalize(basisY);
 	}
 
-
-	function ambientOcclusion(scn, col, isect, rsTempVec, aoRayTemp, aoOrgTemp, aoIsectTemp, basisTemp) {
+	function ambientOcclusion(
+			sceneArray, sceneStart,
+			col, isectPos, isectN, isectF,
+			rsTempVec, tmpRayPos, tmpRayDir,
+			aoOrgTemp, tmpIsectPos, tmpIsectDir, tmpIsectF,
+			basisArray, basisStart) {
 		var i, j;
 		var ntheta = NAO_SAMPLES;
 		var nphi   = NAO_SAMPLES;
 		var eps = 0.0001;
 
 		var p = aoOrgTemp;
-		p.x = isect.p.x + eps * isect.n.x;
-		p.y = isect.p.y + eps * isect.n.y;
-		p.z = isect.p.z + eps * isect.n.z;
+		p[0] = isectPos[0] + eps * isectN[0];
+		p[1] = isectPos[1] + eps * isectN[1];
+		p[2] = isectPos[2] + eps * isectN[2];
 		
-		var basis = basisTemp;
-		orthoBasis(basis, isect.n);
-		
+		var basisX = basisArray[basisStart    ];
+		var basisY = basisArray[basisStart + 1];
+		var basisZ = basisArray[basisStart + 2];
+		orthoBasis(basisX, basisY, basisZ, isectN);
 		var occlusion = 0.0;
 		var pi2 = M_PI * 2.0;
 
@@ -177,91 +229,67 @@
 				var z = sqrt(1.0 - theta * theta);
 				
 				// Transform ray direction on local plane to global coordinate
-				var rx = x * basis[0].x + y * basis[1].x + z * basis[2].x;
-				var ry = x * basis[0].y + y * basis[1].y + z * basis[2].y;
-				var rz = x * basis[0].z + y * basis[1].z + z * basis[2].z;
+				var rx = x * basisX[0] + y * basisY[0] + z * basisZ[0];
+				var ry = x * basisX[1] + y * basisY[1] + z * basisZ[1];
+				var rz = x * basisX[2] + y * basisY[2] + z * basisZ[2];
+	
+				tmpRayPos[0] = p[0];
+				tmpRayPos[1] = p[1];
+				tmpRayPos[2] = p[2];
+				tmpRayDir[0] = rx;
+				tmpRayDir[1] = ry;
+				tmpRayDir[2] = rz;
 				
-				var ray = aoRayTemp;
-				ray.org.x = p.x;
-				ray.org.y = p.y;
-				ray.org.z = p.z;
-				ray.dir.x = rx;
-				ray.dir.y = ry;
-				ray.dir.z = rz;
-				
-				var occIsect = aoIsectTemp;
-				occIsect.t   = 1.0e+17;
-				occIsect.hit = false;
+				tmpIsectF[0] = 1.0e+17;
+				tmpIsectF[1] = 0;
 
 				// Cast a ray
-				raySphereIntersect(occIsect, ray, scn.spheres[0], rsTempVec);
-				raySphereIntersect(occIsect, ray, scn.spheres[1], rsTempVec);
-				raySphereIntersect(occIsect, ray, scn.spheres[2], rsTempVec);
-				rayPlaneIntersect (occIsect, ray, scn.plane);
-				if (occIsect.hit) occlusion += 1.0;
+				raySphereIntersect(tmpIsectPos, tmpIsectDir, tmpIsectF, tmpRayPos, tmpRayDir, sceneArray[sceneStart  ], rsTempVec);
+				raySphereIntersect(tmpIsectPos, tmpIsectDir, tmpIsectF, tmpRayPos, tmpRayDir, sceneArray[sceneStart+1], rsTempVec);
+				raySphereIntersect(tmpIsectPos, tmpIsectDir, tmpIsectF, tmpRayPos, tmpRayDir, sceneArray[sceneStart+2], rsTempVec);
+				rayPlaneIntersect(tmpIsectPos, tmpIsectDir, tmpIsectF, tmpRayPos, tmpRayDir, sceneArray[sceneStart+3], sceneArray[sceneStart+4]);
+				if (tmpIsectF[1]) occlusion += 1.0;
 			}
 		}
 		
 		occlusion = (ntheta * nphi - occlusion) / (ntheta * nphi);
 
 		// Final irradiance
-		col.x = occlusion;
-		col.y = occlusion;
-		col.z = occlusion;
+		col[0] = occlusion;
+		col[1] = occlusion;
+		col[2] = occlusion;
 	}	
 	
 	function initScene()
 	{
-		var scn = {
-			spheres: [new Sphere(), new Sphere(), new Sphere()],
-			plane: new Plane()
-		};
-		
-		var spheres = scn.spheres;
-		var plane = scn.plane;
-		
-	    spheres[0].center.x = -2.0;
-	    spheres[0].center.y =  0.0;
-	    spheres[0].center.z = -3.5;
-	    spheres[0].radius = 0.5;
-
-	    spheres[1].center.x = -0.5;
-	    spheres[1].center.y =  0.0;
-	    spheres[1].center.z = -3.0;
-	    spheres[1].radius = 0.5;
-
-	    spheres[2].center.x =  1.0;
-	    spheres[2].center.y =  0.0;
-	    spheres[2].center.z = -2.2;
-	    spheres[2].radius = 0.5;
-
-	    plane.p.x = 0.0;
-	    plane.p.y = -0.5;
-	    plane.p.z = 0.0;
-
-	    plane.n.x = 0.0;
-	    plane.n.y = 1.0;
-	    plane.n.z = 0.0;
+		var scene = [
+			createSphere(-2.0, 0.0, -3.5, 0.5),
+			createSphere(-0.5, 0.0, -3.0, 0.5),
+			createSphere(1.0, 0.0, -2.2, 0.5),
+			[0.0, -0.5, 0.0, 0],
+			[0.0, 1.0, 0.0, 0]
+		];
 	
-		return scn;
+		return scene;
 	}
 	
 	function render(img, w, h, nsubsamples)
 	{
 		// Work areas (to suppress mass allocation)
-		var rsTempVec = new Vec();
-		var aoRayTemp = new Ray();
-		var aoOrgTemp = new Vec();
-		var aoIsectTemp = new Isect();
-		var basisTemp = [new Vec(), new Vec(), new Vec()];
+		var rsTempVec = createVec();
+		var aoRayTemp = creataRay();
+		var aoOrgTemp = createVec();
+		var aoIsectTemp = createIsect();
+		var basisTemp = [createVec(), createVec(), createVec()];
 
-		var col = new Vec();
+		var col = createVec();
 	    var x, y;
 	    var u, v;
 
-		var ray = new Ray();
-		var isect = new Isect();
-	    var fimg = allocateFloats(w * h * 3);
+		var ray = creataRay();
+		var isect = createIsect();
+		var fimg = allocateFloats(w * h * 3);
+		var scn = gScene;
 
 		for (y = 0; y < h; ++y) {
 			for (x = 0; x < w; ++x) {
@@ -272,32 +300,37 @@
 						var py = -(y + (v / nsubsamples) - (h / 2.0)) / (h / 2.0);
 						
 						// Eye position
-						ray.org.x = 0.0;
-						ray.org.y = 0.0;
-						ray.org.z = 0.0;
+						ray[0][0] = 0.0;
+						ray[0][1] = 0.0;
+						ray[0][2] = 0.0;
 						
 						// Ray direction from the eye
-						ray.dir.x = px;
-						ray.dir.y = py;
-						ray.dir.z = -1.0;
-						ray.dir.normalize();
+						ray[1][0] = px;
+						ray[1][1] = py;
+						ray[1][2] = -1.0;
+						vnormalize(ray[1]);
 						
-						isect.t   = 1.0e+17;
-						isect.hit = false;
+						isect[2][0] = 1.0e+17;
+						isect[2][1] = 0;
 						
 						// Cast the primary ray
-						raySphereIntersect(isect, ray, gScene.spheres[0], rsTempVec);
-						raySphereIntersect(isect, ray, gScene.spheres[1], rsTempVec);
-						raySphereIntersect(isect, ray, gScene.spheres[2], rsTempVec);
-						rayPlaneIntersect (isect, ray, gScene.plane);
+						raySphereIntersect(isect[0], isect[1], isect[2], ray[0], ray[1], scn[0], rsTempVec);
+						raySphereIntersect(isect[0], isect[1], isect[2], ray[0], ray[1], scn[1], rsTempVec);
+						raySphereIntersect(isect[0], isect[1], isect[2], ray[0], ray[1], scn[2], rsTempVec);
+						rayPlaneIntersect(isect[0], isect[1], isect[2], ray[0], ray[1], scn[3], scn[4]);
 
-						if (isect.hit) {
+						if (isect[2][1]) {
 							// Do secondary ray tracing
-							ambientOcclusion(gScene, col, isect, rsTempVec, aoRayTemp, aoOrgTemp, aoIsectTemp, basisTemp);
-
-							fimg[3 * (y * w + x) + 0] += col.x;
-							fimg[3 * (y * w + x) + 1] += col.y;
-							fimg[3 * (y * w + x) + 2] += col.z;
+							ambientOcclusion(
+								scn, 0,
+								col,
+								isect[0], isect[1], isect[2],
+								rsTempVec, aoRayTemp[0], aoRayTemp[1],
+								aoOrgTemp, aoIsectTemp[0], aoIsectTemp[1], aoIsectTemp[2],
+								basisTemp, 0);
+							fimg[3 * (y * w + x) + 0] += col[0];
+							fimg[3 * (y * w + x) + 1] += col[1];
+							fimg[3 * (y * w + x) + 2] += col[2];
 						}
 					}
 				}
@@ -399,13 +432,15 @@
 	
 	function parRender(img, w, h, nsubsamples)
 	{
-		var pArray = makeParallelRenderArray(w * nsubsamples * nsubsamples, gScene);
 	    var x, y, i;
 	    var u, v;
 
+		var vec = createVec();
 	    var fimg = allocateFloats(w * h * 3);
-	
-		function parCastRays(elem, src, index) {
+		function parRaytrace(elem) {
+			var scene = []
+			/*
+			throw 0;
 			var isect = elem.isect;
 			var work = elem.workArea;
 			var rsTempVec = work.rsVec;
@@ -419,45 +454,61 @@
 			if (isect.hit) {
 				ambientOcclusion(scn, elem.color, isect, rsTempVec, work.aoRay, work.aoOrg, work.aoIsect, work.aoBasis);
 			} 
-			
+			*/
 			return elem;
 		}
 
+		var paSource = makeRenderWorkArray(w * nsubsamples * nsubsamples, gScene);
 		for (y = 0; y < h; ++y) {
 			// Setup rays
 			var paPos = 0;
 			for (x = 0; x < w; ++x) {
 				for (v = 0; v < nsubsamples; ++v) {
 	                for (u = 0; u < nsubsamples; ++u) {
-						var paElement = pArray[paPos++];
-						var ray = paElement.ray;
-						var isect = paElement.isect;
-						var col = paElement.color;
-						col.x = col.y = col.z = 0;
-
 						// Make normalized coordinate
 						var px = (x + (u / nsubsamples) - (w / 2.0)) / (w / 2.0);
 						var py = -(y + (v / nsubsamples) - (h / 2.0)) / (h / 2.0);
 						
+						// Ray
 						// Eye position
-						ray.org.x = 0.0;
-						ray.org.y = 0.0;
-						ray.org.z = 0.0;
+						paSource[paPos++] = 0.0;
+						paSource[paPos++] = 0.0;
+						paSource[paPos++] = 0.0;
+						++paPos;
 						
 						// Ray direction from the eye
-						ray.dir.x = px;
-						ray.dir.y = py;
-						ray.dir.z = -1.0;
-						ray.dir.normalize();
+						vec[0] = px;
+						vec[1] = py;
+						vec[2] = -1.0;
+						vnormalize(vec);
+						paSource[paPos++] = vec[0];
+						paSource[paPos++] = vec[1];
+						paSource[paPos++] = vec[2];
+						++paPos;
+
+						// Isect
+						paPos += 4;
+						paPos += 4;
 						
-						isect.t   = 1.0e+17;
-						isect.hit = false;
+						paSource[paPos++] = 1.0e+17;
+						paSource[paPos++] = 0;
+						paPos += 2;
+
+						// Out color
+						paSource[paPos++] = 0;
+						paSource[paPos++] = 0;
+						paSource[paPos++] = 0;
+						++paPos;
+						
+						paPos += 60;
 					}
 				}
 				
 			} // end line
-
-			var paResults = pArray.map(parCastRays);
+//console.log(paPos, w * nsubsamples * nsubsamples * 84)
+			var parArray = new ParallelArray(paSource);
+			var paResults = parArray.map(parRaytrace);
+			throw 456;
 			
 			var paPos = 0;
 			for (x = 0; x < w; ++x) {
@@ -481,32 +532,61 @@
 		}
 	}
 	
-	function makeParallelRenderArray(length, scene) {
+	function createPARenderElement(scene) {
+		return [
+			// Ray
+			/* 0*/ 0,0,0,0, // origin position
+			/* 1*/ 0,0,0,0, // normal
+			
+			// Isect
+			/* 2*/ 0,0,0,0, // position
+			/* 3*/ 0,0,0,0, // normal
+			/* 4*/ 0,0,0,0, // distance, flag
+
+			// Out color
+			/* 5*/ 0,0,0,0,
+			
+			// Scene
+			/* 6*/ scene[0][0], scene[0][1], scene[0][2], scene[0][3],
+			/* 7*/ scene[1][0], scene[1][1], scene[1][2], scene[1][3],
+			/* 8*/ scene[2][0], scene[2][1], scene[2][2], scene[2][3],
+			/* 9*/ scene[3][0], scene[3][1], scene[3][2], scene[3][3],
+			/*10*/ scene[4][0], scene[4][1], scene[4][2], scene[4][3],
+			
+			// Work area
+			/*11*/ 0,0,0,0, // rsTempVec
+
+			/*12*/ 0,0,0,0, // aoTempRay
+			/*13*/ 0,0,0,0,
+			
+			/*14*/ 0,0,0,0, // aoTemoOrigin
+			
+			/*15*/ 0,0,0,0, // aoTempIsect
+			/*16*/ 0,0,0,0,
+			/*17*/ 0,0,0,0,
+			
+			/*18*/ 0,0,0,0, // aoTempBasis
+			/*19*/ 0,0,0,0,
+			/*20*/ 0,0,0,0
+		];
+	}
+	
+	function makeRenderWorkArray(length, scene) {
 		// Setup elements
-		var elements = new Array(length);
+		var elements = [];
 		for (var i = 0;i < length;++i) {
-			elements[i] = {
-				ray: new Ray(),
-				isect: new Isect(),
-				color: new Vec(),
-				scene: scene,
-				workArea: {
-					rsVec: new Vec(),
-					aoRay: new Ray(),
-					aoOrg: new Vec(),
-					aoIsect: new Isect(),
-					aoBasis: [new Vec(), new Vec(), new Vec()]
-				}
-			};
+			Array.prototype.push.apply(elements, createPARenderElement(scene));
 		}
 		
+		return elements;
+		/*
 		try {
 			var pa = new ParallelArray(elements);
 		} catch(e) {
 			alert("Your browser does not support ParallelArray.");
 			return null;
-		}
-		return pa;
+		}*/
+		//return pa;
 	}
 
 })();
