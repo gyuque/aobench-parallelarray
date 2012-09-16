@@ -33,10 +33,21 @@
 				-webkit-transition: all 0.4s;
 				transition: all 0.4s;
 			}
+			
+			.aolink {
+				font-size: 80%;
+				margin: 0.5em;
+				text-align: right;
+			}
+			
+			.aolink a {
+				color: #589;
+			}
 		</style>
 	</head>
 
 	<body onload="void launch();">
+		<p class="aolink"><a href="http://code.google.com/p/aobench/">AOBench families</a></p>
 		<h1>AOBench with ParallelArray</h1>
 		<canvas id="out-canvas"></canvas><br>
 		<button id="start-btn">Normal(Sequential)</button> <button id="par-start-btn">Use ParallelArray</button>
