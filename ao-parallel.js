@@ -18,8 +18,8 @@
 	var cos = Math.cos;
 	var sin = Math.sin;
 	
-	var WIDTH  = 192;
-	var HEIGHT = 192;
+	var WIDTH  = 256;
+	var HEIGHT = 256;
 	var NSUBSAMPLES = 2;
 	var NAO_SAMPLES = 8;
 	
@@ -445,20 +445,21 @@
 
 		// var sphereList = scn.spheres;
 		// Do monte carlo sampling for secondary rays
+
+		outArray[ai++] = xy;
+		
+		outArray[ai++] = ix;
+		outArray[ai++] = iy;
+		outArray[ai++] = iz;
+
+		outArray[ai++] = px;
+		outArray[ai++] = py;
+		outArray[ai++] = pz;
+		
 		for (j = 0; j < ntheta; ++j) {
 			for (i = 0; i < nphi; ++i) {
-				outArray[ai++] = xy;
 				outArray[ai++] = drand48();
 				outArray[ai++] = drand48();
-
-				outArray[ai++] = ix;
-				outArray[ai++] = iy;
-				outArray[ai++] = iz;
-
-				outArray[ai++] = px;
-				outArray[ai++] = py;
-				outArray[ai++] = pz;
-
 				/*
 				for (var si = 0;si < 3;++si) {
 					var sphere = sphereList[si];
@@ -510,20 +511,18 @@
 	function parCalcAO(index) {
 		var topIndex = index[0] - 0;
 		var el = this.get(topIndex);
+		var nDir = (el.length - 7) >> 1;
 
 		var sxsy = el[0];
 		if (sxsy == 0) {return[0,0];}
-
-		var theta = Math.sqrt( el[1] );
-		var phi = 3.14159 * 2 * el[2];
-
-		var x = Math.cos(phi) * theta;
-		var y = Math.sin(phi) * theta;
-		var z = Math.sqrt(1.0 - theta * theta);
 		
-		var bZ_x = el[3];
-		var bZ_y = el[4];
-		var bZ_z = el[5];
+		var bZ_x = el[1];
+		var bZ_y = el[2];
+		var bZ_z = el[3];
+
+		var ox = el[4];
+		var oy = el[5];
+		var oz = el[6];
 
 		var bY_x = 0;
 		var bY_y = 0;
@@ -554,84 +553,86 @@
 		x2 /= bYlen;
 		y2 /= bYlen;
 		z2 /= bYlen;
-		
-		
-		var ox = el[6];
-		var oy = el[7];
-		var oz = el[8];
 
-		var rdx = x * bX_x + y * x2 + z * bZ_x;
-		var rdy = x * bX_y + y * y2 + z * bZ_y;
-		var rdz = x * bX_z + y * z2 + z * bZ_z;
-		var occ = 0;
+		var ei = 7;
+		var totalOcc = 0;
+		for (var di = 0;di < nDir;di++) {
+			var theta = Math.sqrt( el[ei] );
+			var phi = 3.14159 * 2 * el[ei+1];
+			ei += 2;
 
-		var R  = 0.5;
-		for (var objIndex = 0;objIndex < 4 && !occ;objIndex++) {
-			if (objIndex > 2) {
-				// Plane
-				var ppx = 0.0;
-				var ppy = -0.5;
-				var ppz = 0.0;
+			var x = Math.cos(phi) * theta;
+			var y = Math.sin(phi) * theta;
+			var z = Math.sqrt(1.0 - theta * theta);
 
-				var pnx = 0.0;
-				var pny = 1.0;
-				var pnz = 0.0;
+
+			var rdx = x * bX_x + y * x2 + z * bZ_x;
+			var rdy = x * bX_y + y * y2 + z * bZ_y;
+			var rdz = x * bX_z + y * z2 + z * bZ_z;
+			var occ = 0;
+
+			var R  = 0.5;
+			for (var objIndex = 0;objIndex < 4 && !occ;objIndex++) {
+				if (objIndex > 2) {
+					// Plane
+					var ppx = 0.0;
+					var ppy = -0.5;
+					var ppz = 0.0;
+
+					var pnx = 0.0;
+					var pny = 1.0;
+					var pnz = 0.0;
 			
-				var pd = -(ppx * pnx + ppy * pny + ppz * pnz);
-				var pv = rdx * pnx + rdy * pny + rdz * pnz;
-				var pva = (pv < 0) ? -pv : pv;
+					var pd = -(ppx * pnx + ppy * pny + ppz * pnz);
+					var pv = rdx * pnx + rdy * pny + rdz * pnz;
+					var pva = (pv < 0) ? -pv : pv;
 
-				if (pva >= 1.0e-17) {
-					var pt = -((ox * pnx + oy * pny + oz * pnz) + pd) / pv;
-					if (pt > 0.0) {
-						occ = 1;
+					if (pva >= 1.0e-17) {
+						var pt = -((ox * pnx + oy * pny + oz * pnz) + pd) / pv;
+						if (pt > 0.0) {
+							occ = 1;
+						}
 					}
-				}
-			} else {
-				// Sphere
-/*			
-				var cx = -3.0 + objIndex * 1.5;
-				var cy = 0;
-				var cz = (objIndex == 0) ? -3.5 :
-				         (objIndex == 1) ? -3.0 : 
-				         2.2;
-				var R  = 0.5;
-*/
-				var cx, cy, cz;
-				if (objIndex == 0) {
-					cx = -2.0;
-					cy = 0;
-					cz = -3.5;
-				} else if (objIndex == 1) {
-					cx = -0.5;
-					cy = 0;
-					cz = -3;
 				} else {
-					cx = 1.0;
-					cy = 0;
-					cz = -2.2;
-				}
+					// Sphere
 
-				/* sphere isect */
-				var rsx = ox - cx;
-				var rsy = oy - cy;
-				var rsz = oz - cz;
+					var cx, cy, cz;
+					if (objIndex == 0) {
+						cx = -2.0;
+						cy = 0;
+						cz = -3.5;
+					} else if (objIndex == 1) {
+						cx = -0.5;
+						cy = 0;
+						cz = -3;
+					} else {
+						cx = 1.0;
+						cy = 0;
+						cz = -2.2;
+					}
 
-				var B = rsx*rdx + rsy*rdy + rsz*rdz;
-				var C = rsx*rsx + rsy*rsy + rsz*rsz - R * R;
-				var D = B * B - C;
+					// sphere isect
+					var rsx = ox - cx;
+					var rsy = oy - cy;
+					var rsz = oz - cz;
 
-				if (D > 0.0) {
-					var s_t = -B - Math.sqrt(D);	
-					if (s_t > 0.0) {
-						occ = 1;
+					var B = rsx*rdx + rsy*rdy + rsz*rdz;
+					var C = rsx*rsx + rsy*rsy + rsz*rsz - R * R;
+					var D = B * B - C;
+
+					if (D > 0.0) {
+						var s_t = -B - Math.sqrt(D);	
+						if (s_t > 0.0) {
+							occ = 1;
+						}
 					}
 				}
 			}
 			
+			totalOcc += occ;
 		}
 		
-		return [sxsy, occ];
+		return [sxsy, (nDir - totalOcc) / nDir ];
 	}
 
 	function parRender(img, w, h, nsubsamples){
@@ -649,7 +650,9 @@
 		var ray = new Ray();
 		var isect = new Isect();
 	    var fimg = allocateFloats(w * h * 3);
-		var aoQueue = new Float32Array(w*h * nsubsamples*nsubsamples * NAO_SAMPLES*NAO_SAMPLES * 9);
+	
+		var aoStride = NAO_SAMPLES*NAO_SAMPLES*2 + 7;
+		var aoQueue = new Float32Array(w*h * nsubsamples*nsubsamples * aoStride);
 		var aqIndex = 0;
 		var aoCount = 0;
 
@@ -694,24 +697,12 @@
 
 		var aoLenPerSample = NAO_SAMPLES*NAO_SAMPLES; 
 		var paAO = new ParallelArray(aoQueue);
-		var paAOResult  = paAO.partition(9).combine(parCalcAO);
-
-		var paOccCounts = paAOResult.partition(aoLenPerSample).combine(function(index) {
-			var a = this.get(index[0] - 0);
-			var nDirs = a.length;
-			var occ = 0;
-			for (var di = 0;di < nDirs;di++) {
-				occ += a[di][1];
-			}
-			
-			var iocc = (nDirs - occ) / nDirs;
-			return [a[0][0], iocc];
-		});
+		var paAOResult  = paAO.partition(aoStride).combine(parCalcAO);
 
 		var q;
 		var oIndex = 0;
 		var intensity;
-		var farr = paOccCounts.flatten();
+		var farr = paAOResult.flatten();
 		
 		for (q = 0;q < aoCount;++q) {
 			var xy = farr.get(oIndex++) | 0;
