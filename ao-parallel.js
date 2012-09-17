@@ -423,7 +423,7 @@
 		return vx + (vy * 1000) + (vz * 1000000)
 	}
 	
-	function addAOEntry(outArray, ai, scn, x, y, isect, aoOrgTemp, basisTemp) {
+	function addAOEntry(outArray, ai, scn, x, y, isect, aoOrgTemp) {
 		var i, j;
 		var ntheta = NAO_SAMPLES;
 		var nphi   = NAO_SAMPLES;
@@ -433,13 +433,13 @@
 		p.x = isect.p.x + eps * isect.n.x;
 		p.y = isect.p.y + eps * isect.n.y;
 		p.z = isect.p.z + eps * isect.n.z;
-		
+/*		
 		var basis = basisTemp;
 		orthoBasis(basis, isect.n);
-		
+*/		
 		var pi2 = M_PI * 2.0;
 
-		var sphereList = scn.spheres;
+		// var sphereList = scn.spheres;
 		// Do monte carlo sampling for secondary rays
 		for (j = 0; j < ntheta; ++j) {
 			for (i = 0; i < nphi; ++i) {
@@ -524,6 +524,7 @@
 
 		var sx = el[0];
 		var sy = el[1];
+		if (sx == 0 && sy == 0) {return[0,0,0];}
 		var xy = sx*1000 + sy;
 
 		var theta = el[2];
@@ -655,8 +656,8 @@
 		var basisTemp = [new Vec(), new Vec(), new Vec()];
 
 		var col = new Vec();
-	    var x, y;
-	    var u, v;
+		var x, y;
+		var u, v;
 
 		var ray = new Ray();
 		var isect = new Isect();
@@ -696,7 +697,7 @@
 
 						if (isect.hit) {
 							// Prepare secondary ray tracing
-							aqIndex = addAOEntry(aoQueue, aqIndex, gScene, x, y, isect, aoOrgTemp, basisTemp);
+							aqIndex = addAOEntry(aoQueue, aqIndex, gScene, x, y, isect, aoOrgTemp);
 							++aoCount;
 						}
 					}
