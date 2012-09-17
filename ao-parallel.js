@@ -423,16 +423,20 @@
 		return vx + (vy * 1000) + (vz * 1000000)
 	}
 	
-	function addAOEntry(outArray, ai, scn, x, y, isect, aoOrgTemp) {
+	function addAOEntry(outArray, ai, scn, x, y, isect) {
 		var i, j;
 		var ntheta = NAO_SAMPLES;
 		var nphi   = NAO_SAMPLES;
 		var eps = 0.0001;
 
-		var p = aoOrgTemp;
-		p.x = isect.p.x + eps * isect.n.x;
-		p.y = isect.p.y + eps * isect.n.y;
-		p.z = isect.p.z + eps * isect.n.z;
+		var xy = x | (y << 12);
+		var ix = isect.n.x;
+		var iy = isect.n.y;
+		var iz = isect.n.z;
+
+		var px = isect.p.x + eps * ix;
+		var py = isect.p.y + eps * iy;
+		var pz = isect.p.z + eps * iz;
 /*		
 		var basis = basisTemp;
 		orthoBasis(basis, isect.n);
@@ -443,17 +447,17 @@
 		// Do monte carlo sampling for secondary rays
 		for (j = 0; j < ntheta; ++j) {
 			for (i = 0; i < nphi; ++i) {
-				outArray[ai++] = x | (y << 12);
+				outArray[ai++] = xy;
 				outArray[ai++] = drand48();
 				outArray[ai++] = drand48();
 
-				outArray[ai++] = isect.n.x;
-				outArray[ai++] = isect.n.y;
-				outArray[ai++] = isect.n.z;
+				outArray[ai++] = ix;
+				outArray[ai++] = iy;
+				outArray[ai++] = iz;
 
-				outArray[ai++] = p.x;
-				outArray[ai++] = p.y;
-				outArray[ai++] = p.z;
+				outArray[ai++] = px;
+				outArray[ai++] = py;
+				outArray[ai++] = pz;
 
 				/*
 				for (var si = 0;si < 3;++si) {
@@ -497,17 +501,6 @@
 				outArray[ai++] = 0;
 				outArray[ai++] = -1;
 				*/
-/*
-				// Select a random direction
-				var x = cos(phi) * theta;
-				var y = sin(phi) * theta;
-				var z = sqrt(1.0 - theta * theta);
-				
-				// Transform ray direction on local plane to global coordinate
-				var rx = x * basis[0].x + y * basis[1].x + z * basis[2].x;
-				var ry = x * basis[0].y + y * basis[1].y + z * basis[2].y;
-				var rz = x * basis[0].z + y * basis[1].z + z * basis[2].z;
-*/				
 			}
 		}
 		
@@ -521,7 +514,7 @@
 		var sxsy = el[0];
 		if (sxsy == 0) {return[0,0];}
 
-		var theta = Math.sqrt(el[1]);
+		var theta = Math.sqrt( el[1] );
 		var phi = 3.14159 * 2 * el[2];
 
 		var x = Math.cos(phi) * theta;
@@ -690,7 +683,7 @@
 
 						if (isect.hit) {
 							// Prepare secondary ray tracing
-							aqIndex = addAOEntry(aoQueue, aqIndex, gScene, x, y, isect, aoOrgTemp);
+							aqIndex = addAOEntry(aoQueue, aqIndex, gScene, x, y, isect);
 							++aoCount;
 						}
 					}
