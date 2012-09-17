@@ -18,8 +18,8 @@
 	var cos = Math.cos;
 	var sin = Math.sin;
 	
-	var WIDTH  = 128;
-	var HEIGHT = 128;
+	var WIDTH  = 192;
+	var HEIGHT = 192;
 	var NSUBSAMPLES = 2;
 	var NAO_SAMPLES = 8;
 	
@@ -140,13 +140,13 @@
 
 		if ((n.x < 0.6) && (n.x > -0.6)) {
 			basis[1].x = 1.0;
-	    } else if ((n.y < 0.6) && (n.y > -0.6)) {
+		} else if ((n.y < 0.6) && (n.y > -0.6)) {
 			basis[1].y = 1.0;
-	    } else if ((n.z < 0.6) && (n.z > -0.6)) {
+		} else if ((n.z < 0.6) && (n.z > -0.6)) {
 			basis[1].z = 1.0;
-	    } else {
+		} else {
 			basis[1].x = 1.0;
-	    }
+		}
 
 	    basis[0].cross(basis[1], basis[2]);
 	    basis[0].normalize();
@@ -415,6 +415,14 @@
 	}
 	
 	// ++++ Parallel version ++++
+	function packVector(v) {
+		vx = ((v.x * 499) + 500) | 0;
+		vy = ((v.y * 499) + 500) | 0;
+		vz = ((v.z * 499) + 500) | 0;
+		
+		return vx + (vy * 1000) + (vz * 1000000)
+	}
+	
 	function addAOEntry(outArray, ai, scn, x, y, isect, aoOrgTemp, basisTemp) {
 		var i, j;
 		var ntheta = NAO_SAMPLES;
@@ -429,7 +437,6 @@
 		var basis = basisTemp;
 		orthoBasis(basis, isect.n);
 		
-		var occlusion = 0.0;
 		var pi2 = M_PI * 2.0;
 
 		var sphereList = scn.spheres;
@@ -438,6 +445,21 @@
 			for (i = 0; i < nphi; ++i) {
 				var theta = sqrt(drand48());
 				var phi   = pi2 * drand48();
+
+				outArray[ai++] = x;
+				outArray[ai++] = y;
+				outArray[ai++] = theta;
+				outArray[ai++] = phi;
+
+				outArray[ai++] = isect.n.x;
+				outArray[ai++] = isect.n.y;
+				outArray[ai++] = isect.n.z;
+
+				outArray[ai++] = p.x;
+				outArray[ai++] = p.y;
+				outArray[ai++] = p.z;
+
+				/*
 				for (var si = 0;si < 3;++si) {
 					var sphere = sphereList[si];
 					
@@ -446,13 +468,9 @@
 					outArray[ai++] = theta;
 					outArray[ai++] = phi;
 
-					outArray[ai++] = basis[1].x;
-					outArray[ai++] = basis[1].y;
-					outArray[ai++] = basis[1].z;
-
-					outArray[ai++] = basis[2].x;
-					outArray[ai++] = basis[2].y;
-					outArray[ai++] = basis[2].z;
+					outArray[ai++] = isect.n.x;
+					outArray[ai++] = isect.n.y;
+					outArray[ai++] = isect.n.z;
 
 					outArray[ai++] = p.x;
 					outArray[ai++] = p.y;
@@ -470,13 +488,9 @@
 				outArray[ai++] = theta;
 				outArray[ai++] = phi;
 
-				outArray[ai++] = basis[1].x;
-				outArray[ai++] = basis[1].y;
-				outArray[ai++] = basis[1].z;
-
-				outArray[ai++] = basis[2].x;
-				outArray[ai++] = basis[2].y;
-				outArray[ai++] = basis[2].z;
+				outArray[ai++] = isect.n.x;
+				outArray[ai++] = isect.n.y;
+				outArray[ai++] = isect.n.z;
 
 				outArray[ai++] = p.x;
 				outArray[ai++] = p.y;
@@ -486,7 +500,7 @@
 				outArray[ai++] = 0;
 				outArray[ai++] = 0;
 				outArray[ai++] = -1;
-
+				*/
 /*
 				// Select a random direction
 				var x = cos(phi) * theta;
@@ -519,73 +533,116 @@
 		var y = Math.sin(phi) * theta;
 		var z = Math.sqrt(1.0 - theta * theta);
 		
-		var bY_x = el[4];
-		var bY_y = el[5];
-		var bY_z = el[6];
+		var bZ_x = el[4];
+		var bZ_y = el[5];
+		var bZ_z = el[6];
 
-		var bZ_x = el[7];
-		var bZ_y = el[8];
-		var bZ_z = el[9];
-		
-		var ox = el[10];
-		var oy = el[11];
-		var oz = el[12];
+		var bY_x = 0;
+		var bY_y = 0;
+		var bY_z = 0;
+		if ((bZ_x < 0.6) && (bZ_x > -0.6)) {
+			bY_x = 1.0;
+		} else if ((bZ_y < 0.6) && (bZ_y > -0.6)) {
+			bY_y = 1.0;
+		} else if ((bZ_z < 0.6) && (bZ_z > -0.6)) {
+			bY_z = 1.0;
+		} else {
+			bY_x = 1.0;
+		}
 
-		var cx = el[13];
-		var cy = el[14];
-		var cz = el[15];
-		var R  = el[16];
-		var occ = 0;
-		
-		// bX <- bY X bZ
 		var bX_x = bY_y * bZ_z - bY_z * bZ_y;
 		var bX_y = bY_z * bZ_x - bY_x * bZ_z;
 		var bX_z = bY_x * bZ_y - bY_y * bZ_x;
+		var bXlen = Math.sqrt(bX_x*bX_x + bX_y*bX_y + bX_z*bX_z);
+		bX_x /= bXlen;
+		bX_y /= bXlen;
+		bX_z /= bXlen;
 
-		var rdx = x * bX_x + y * bY_x + z * bZ_x;
-		var rdy = x * bX_y + y * bY_y + z * bZ_y;
-		var rdz = x * bX_z + y * bY_z + z * bZ_z;
-
-		if (R < 0) {
-			// Plane
-			var ppx = 0.0;
-			var ppy = -0.5;
-			var ppz = 0.0;
-
-			var pnx = 0.0;
-			var pny = 1.0;
-			var pnz = 0.0;
-			
-			var pd = -(ppx * pnx + ppy * pny + ppz * pnz);
-			var pv = rdx * pnx + rdy * pny + rdz * pnz;
-			var pva = (pv < 0) ? -pv : pv;
-
-			if (pva >= 1.0e-17) {
-				var pt = -((ox * pnx + oy * pny + oz * pnz) + pd) / pv;
-				if (pt > 0.0) {
-					occ = 1;
-				}
-			}
-		} else {
-			// Sphere
-			
+		var x2 = bZ_y * bX_z - bZ_z * bX_y;
+		var y2 = bZ_z * bX_x - bZ_x * bX_z;
+		var z2 = bZ_x * bX_y - bZ_y * bX_x;
+		var bYlen = Math.sqrt(x2*x2 + y2*y2 + z2*z2);
 		
-			/* sphere isect */
-			var rsx = ox - cx;
-			var rsy = oy - cy;
-			var rsz = oz - cz;
+		x2 /= bYlen;
+		y2 /= bYlen;
+		z2 /= bYlen;
+		
+		
+		var ox = el[7];
+		var oy = el[8];
+		var oz = el[9];
 
-			var B = rsx*rdx + rsy*rdy + rsz*rdz;
-			var C = rsx*rsx + rsy*rsy + rsz*rsz - R * R;
-			var D = B * B - C;
+		var rdx = x * bX_x + y * x2 + z * bZ_x;
+		var rdy = x * bX_y + y * y2 + z * bZ_y;
+		var rdz = x * bX_z + y * z2 + z * bZ_z;
+		var occ = 0;
 
-			if (D > 0.0) {
-				var s_t = -B - Math.sqrt(D);	
-				if (s_t > 0.0) {
-					occ = 1;
+		var R  = 0.5;
+		for (var objIndex = 0;objIndex < 4 && !occ;objIndex++) {
+			if (objIndex > 2) {
+				// Plane
+				var ppx = 0.0;
+				var ppy = -0.5;
+				var ppz = 0.0;
+
+				var pnx = 0.0;
+				var pny = 1.0;
+				var pnz = 0.0;
+			
+				var pd = -(ppx * pnx + ppy * pny + ppz * pnz);
+				var pv = rdx * pnx + rdy * pny + rdz * pnz;
+				var pva = (pv < 0) ? -pv : pv;
+
+				if (pva >= 1.0e-17) {
+					var pt = -((ox * pnx + oy * pny + oz * pnz) + pd) / pv;
+					if (pt > 0.0) {
+						occ = 1;
+					}
+				}
+			} else {
+				// Sphere
+/*			
+				var cx = -3.0 + objIndex * 1.5;
+				var cy = 0;
+				var cz = (objIndex == 0) ? -3.5 :
+				         (objIndex == 1) ? -3.0 : 
+				         2.2;
+				var R  = 0.5;
+*/
+				var cx, cy, cz;
+				if (objIndex == 0) {
+					cx = -2.0;
+					cy = 0;
+					cz = -3.5;
+				} else if (objIndex == 1) {
+					cx = -0.5;
+					cy = 0;
+					cz = -3;
+				} else {
+					cx = 1.0;
+					cy = 0;
+					cz = -2.2;
+				}
+
+				/* sphere isect */
+				var rsx = ox - cx;
+				var rsy = oy - cy;
+				var rsz = oz - cz;
+
+				var B = rsx*rdx + rsy*rdy + rsz*rdz;
+				var C = rsx*rsx + rsy*rsy + rsz*rsz - R * R;
+				var D = B * B - C;
+
+				if (D > 0.0) {
+					var s_t = -B - Math.sqrt(D);	
+					if (s_t > 0.0) {
+						occ = 1;
+					}
 				}
 			}
+			
 		}
+		
 		return [sx, sy, occ];
 	}
 
@@ -607,8 +664,10 @@
 		var ray = new Ray();
 		var isect = new Isect();
 	    var fimg = allocateFloats(w * h * 3);
-		var aoQueue = new Float32Array(w*h * nsubsamples*nsubsamples * 4 * NAO_SAMPLES*NAO_SAMPLES * 17);
+		var aoQueue = new Float32Array(w*h * nsubsamples*nsubsamples * NAO_SAMPLES*NAO_SAMPLES * 10);
+		console.log(aoQueue.length)
 		var aqIndex = 0;
+		var aoCount = 0;
 
 		for (y = 0; y < h; ++y) {
 			for (x = 0; x < w; ++x) {
@@ -642,6 +701,7 @@
 							// Do secondary ray tracing
 //							ambientOcclusion(gScene, col, isect, rsTempVec, aoRayTemp, aoOrgTemp, aoIsectTemp, basisTemp);
 							aqIndex = addAOEntry(aoQueue, aqIndex, gScene, x, y, isect, aoOrgTemp, basisTemp);
+							++aoCount;
 //							aoQueue.push(x,y, isect.p.x, isect.p.y, isect.p.z, isect.n.x, isect.n.y, isect.n.z);
 							/*
 							fimg[3 * (y * w + x) + 0] += col.x;
@@ -664,20 +724,16 @@
 			}
 		}
 	
+		var aoLenPerSample = NAO_SAMPLES*NAO_SAMPLES; 
 		var paAO = new ParallelArray(aoQueue);
-//		paAO.shape = [paAO.length/17, 17];
-//		paAO.strides = [17, 1];
-		var paAOResult  = paAO.partition(17).combine(parCalcAO);
-		var aoLenPerSample = (NAO_SAMPLES*NAO_SAMPLES) * 4; 
+		var paAOResult  = paAO.partition(10).combine(parCalcAO);
+
 		var paOccCounts = paAOResult.partition(aoLenPerSample).combine(function(index) {
 			var a = this.get(index[0] - 0);
-			var nDirs = a.length >> 2;
+			var nDirs = a.length;
 			var occ = 0;
 			for (var di = 0;di < nDirs;di++) {
-				var oi = di << 2;
-				if (a[oi][2] | a[oi+1][2] > 0 | a[oi+2][2] > 0 | a[oi+3][2]) {
-					occ++;
-				}
+				occ += a[di][2];
 			}
 			
 			var iocc = (nDirs - occ) / nDirs;
@@ -686,34 +742,16 @@
 		
 		
 		var q;
-		/*
-		var cnt = 0;
-		for (q = 0;q < 190;++q) {
-			var occ = paOccCounts.get(30000+q);
-			console.log(occ);
-		}
-		*/
-		
 		var oIndex = 0;
 		var intensity;
-//		console.log(paOccCounts)
-//		return;
-		
 		var farr = paOccCounts.flatten();
-		for (q = 0;q < 16384;++q) {
-			for (v = 0; v < nsubsamples; ++v) {
-				for (u = 0; u < nsubsamples; ++u) {
-					x = farr.get(oIndex++) | 0;
-					y = farr.get(oIndex++) | 0;
-					var intensity = farr.get(oIndex++);
-					fimg[3 * (y * w + x) + 0] += intensity;
-					fimg[3 * (y * w + x) + 1] += intensity;
-					fimg[3 * (y * w + x) + 2] += intensity;
-				}
-			}
-//			console.log(x, y);
-			/*
-*/
+		for (q = 0;q < aoCount;++q) {
+			x = farr.get(oIndex++) | 0;
+			y = farr.get(oIndex++) | 0;
+			var intensity = farr.get(oIndex++);
+			fimg[3 * (y * w + x) + 0] += intensity;
+			fimg[3 * (y * w + x) + 1] += intensity;
+			fimg[3 * (y * w + x) + 2] += intensity;
 		}
 		
 		for (y = 0; y < h; ++y) {
@@ -919,5 +957,53 @@
 		return ret;
 	}
 	
-	
+	function basisTest() {
+		var b = new Vec();
+		b.x = Math.random() * 2 - 1;
+		b.y = Math.random() * 2 - 1;
+		b.z = Math.random() * 2 - 1;
+		b.normalize();
+		var bZ_x = b.x;
+		var bZ_y = b.y;
+		var bZ_z = b.z;
+
+		var bY_x = 0;
+		var bY_y = 0;
+		var bY_z = 0;
+		if ((bZ_x < 0.6) && (bZ_x > -0.6)) {
+			bY_x = 1.0;
+		} else if ((bZ_y < 0.6) && (bZ_y > -0.6)) {
+			bY_y = 1.0;
+		} else if ((bZ_z < 0.6) && (bZ_z > -0.6)) {
+			bY_z = 1.0;
+		} else {
+			bY_x = 1.0;
+		}
+
+		var bX_x = bY_y * bZ_z - bY_z * bZ_y;
+		var bX_y = bY_z * bZ_x - bY_x * bZ_z;
+		var bX_z = bY_x * bZ_y - bY_y * bZ_x;
+		var bXlen = Math.sqrt(bX_x*bX_x + bX_y*bX_y + bX_z*bX_z);
+		bX_x /= bXlen;
+		bX_y /= bXlen;
+		bX_z /= bXlen;
+
+		bY_x = bZ_y * bX_z - bZ_z * bX_y;
+		bY_y = bZ_z * bX_x - bZ_x * bX_z;
+		bY_z = bZ_x * bX_y - bZ_y * bX_x;
+		var bYlen = Math.sqrt(bY_x*bY_x + bY_y*bY_y + bY_z*bY_z);
+		bY_x /= bYlen;
+		bY_y /= bYlen;
+		bY_z /= bYlen;
+		console.log(bYlen);
+		/*
+		console.log(bX_x, bX_y, bX_z)
+		console.log(bY_x, bY_y, bY_z)
+		console.log(bZ_x, bZ_y, bZ_z)
+		*/
+	}
+	/*
+	for (var i = 0;i < 1000;i++) {
+		basisTest();
+	}*/
 })();
