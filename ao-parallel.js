@@ -1,7 +1,15 @@
+/*   ooo ooo ooo ooo ooo   aobench   ooo ooo ooo ooo ooo
+ *
+ *            Original version by Syoyo Fujita
+ *            http://code.google.com/p/aobench/
+ *
+ * Javascript + River Trail version by Satoshi Ueyama, 2012
+ */
+
 (function() {
 	//'use strict';
-	// ++++ Original version ++++
-	
+	// Unfortunately, River Trail fails in strict mode
+
 	// Function shortcuts
 	var sqrt = Math.sqrt;
 	var fabs = Math.abs;
