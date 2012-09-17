@@ -379,9 +379,9 @@
 			var a = this.get(topIndex).get(2).get(1);
 			return a;
 		});
-		*/
 		
 		console.log(pa2)
+		*/
 		
 		function startAO(par) {
 			var g = outCanvas.getContext("2d");
@@ -448,25 +448,85 @@
 
 		var vec = createVec();
 	    var fimg = allocateFloats(w * h * 3);
-		function parRaytrace(elem) {
-//			var scn1 = elem[]
-			/*
-			throw 0;
-			var isect = elem.isect;
-			var work = elem.workArea;
-			var rsTempVec = work.rsVec;
-			var scn = elem.scene;
+		function parRaytrace(i) {
+			var topIndex = i[0] - 0;
+			var j = this.get(topIndex);
+
+			var rayPos   = [j[0], j[1], j[2], j[3]];
+			var rayDir   = [j[4], j[5], j[6], j[7]];
 			
-			raySphereIntersect(isect, elem.ray, scn.spheres[0], rsTempVec);
-			raySphereIntersect(isect, elem.ray, scn.spheres[1], rsTempVec);
-			raySphereIntersect(isect, elem.ray, scn.spheres[2], rsTempVec);
-			rayPlaneIntersect (isect, elem.ray, scn.plane);
+			var isectPos = [j[8], j[9], j[10], j[11]];
+			var isectN   = [j[12], j[13], j[14], j[15]];
+			var isectF   = [j[16], j[17], j[18], j[19]];
 			
-			if (isect.hit) {
-				ambientOcclusion(scn, elem.color, isect, rsTempVec, work.aoRay, work.aoOrg, work.aoIsect, work.aoBasis);
-			} 
-			*/
-			return elem;
+			var sphere1 = [j[20], j[21], j[22], j[23]]; 
+			
+			function vdot(a, b) {
+				return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+			}
+
+			function fabs(v) {
+				return (v < 0) ? -v : v;
+			}
+
+			function vnormalize(v) {
+				var length = Math.sqrt(vdot(v, v));
+
+				if (fabs(length) > 1.0e-17) {
+					v[0] /= length;
+					v[1] /= length;
+					v[2] /= length;
+				}
+			}
+
+			function vcross(vOut, v0, v1) {
+				vOut[0] = v0[1] * v1[2] - v0[2] * v1[1];
+				vOut[1] = v0[2] * v1[0] - v0[0] * v1[2];
+				vOut[2] = v0[0] * v1[1] - v0[1] * v1[0];
+			}
+			
+			function parRaySphereIntersect(isectPos, isectN, isectF, rayPos, rayDir, sphere, tempVec) {
+				/*
+				var sphereR = sphere[3];
+				var rs = tempVec;
+
+				rs[0] = rayPos[0] - sphere[0];
+				rs[1] = rayPos[1] - sphere[1];
+				rs[2] = rayPos[2] - sphere[2];
+				var B = vdot(rs, rayDir);
+				var C = vdot(rs, rs) - sphereR * sphereR;
+				var D = B * B - C;
+
+				if (D > 0.0) {
+					var t = -B - Math.sqrt(D);
+					if ((t > 0.0) && (t < isectF[0])) {
+						isectF[0] = t;
+						isectF[1] = 1;
+
+						isectPos[0] = rayPos[0] + rayDir[0] * t;
+						isectPos[1] = rayPos[1] + rayDir[1] * t;
+						isectPos[2] = rayPos[2] + rayDir[2] * t;
+
+						isectN[0] = isectPos[0] - sphere[0];
+						isectN[1] = isectPos[1] - sphere[1];
+						isectN[2] = isectPos[2] - sphere[2];
+
+						vnormalize(isectN);
+					}
+				}
+	*/
+				return 0;
+			}
+			
+			var tempVec = [0, 0, 0, 0];
+			//parRaySphereIntersect(isectPos, isectN, isectF, rayPos, rayDir, sphere1, tempVec);
+			function hoge(a) {
+				return 9;
+			}
+			
+			hoge(1);
+
+			return isectF;
 		}
 
 		var paSource = makeRenderWorkArray(w * nsubsamples * nsubsamples, gScene);
@@ -500,10 +560,6 @@
 						elem[16] = 1.0e+17;
 						elem[17] = 0;
 
-						// Out color
-						elem[20] = 0;
-						elem[21] = 0;
-						elem[22] = 0;
 					}
 				}
 				
@@ -511,56 +567,8 @@
 //console.log(paPos, w * nsubsamples * nsubsamples * 84)
 			var parArray = new ParallelArray(paSource);
 	//		var parArray = new ParallelArray([[0, 1], [2, 3]]);
-	function ax() {
-		return 1;
-	}
-			var paResults = parArray.combine(function(i){
-				var j = this.get(i);
-				
-				var rayPos   = [j[0], j[1], j[2], j[3]];
-				var rayDir   = [j[4], j[5], j[6], j[7]];
-				
-				var isectPos = [j[8], j[9], j[10], j[11]];
-				var isectN   = [j[12], j[13], j[14], j[15]];
-				var isectF   = [j[16], j[17], j[18], j[19]];
-				var x = ax();
-				
-				return [
-				/* 0*/ x,0,0,0, // origin position
-				/* 1*/ 0,0,0,0, // normal
-
-				// Isect
-				/* 2*/ 0,0,0,0, // position
-				/* 3*/ 0,0,0,0, // normal
-				/* 4*/ 0,0,0,0, // distance, flag
-
-				// Out color
-				/* 5*/ 0,0,0,0,
-
-				// Scene
-				/* 6*/ 0,0,0,0,
-				/* 7*/ 0,0,0,0,
-				/* 8*/ 0,0,0,0,
-				/* 9*/ 0,0,0,0,
-				/*10*/ 0,0,0,0,
-
-				// Work area
-				/*11*/ 0,0,0,0, // rsTempVec
-
-				/*12*/ 0,0,0,0, // aoTempRay
-				/*13*/ 0,0,0,0,
-
-				/*14*/ 0,0,0,0, // aoTemoOrigin
-
-				/*15*/ 0,0,0,0, // aoTempIsect
-				/*16*/ 0,0,0,0,
-				/*17*/ 0,0,0,0,
-
-				/*18*/ 0,0,0,0, // aoTempBasis
-				/*19*/ 0,0,0,0,
-				/*20*/ 0,0,0,0
-				];
-			})
+			var paResults = parArray.combine(parRaytrace)
+			console.log(paResults);
 			throw 456;
 			
 			var paPos = 0;
@@ -595,32 +603,13 @@
 			/* 2*/ 0,0,0,0, // position
 			/* 3*/ 0,0,0,0, // normal
 			/* 4*/ 0,0,0,0, // distance, flag
-
-			// Out color
-			/* 5*/ 0,0,0,0,
 			
 			// Scene
-			/* 6*/ scene[0][0], scene[0][1], scene[0][2], scene[0][3],
-			/* 7*/ scene[1][0], scene[1][1], scene[1][2], scene[1][3],
-			/* 8*/ scene[2][0], scene[2][1], scene[2][2], scene[2][3],
-			/* 9*/ scene[3][0], scene[3][1], scene[3][2], scene[3][3],
-			/*10*/ scene[4][0], scene[4][1], scene[4][2], scene[4][3],
-			
-			// Work area
-			/*11*/ 0,0,0,0, // rsTempVec
-
-			/*12*/ 0,0,0,0, // aoTempRay
-			/*13*/ 0,0,0,0,
-			
-			/*14*/ 0,0,0,0, // aoTemoOrigin
-			
-			/*15*/ 0,0,0,0, // aoTempIsect
-			/*16*/ 0,0,0,0,
-			/*17*/ 0,0,0,0,
-			
-			/*18*/ 0,0,0,0, // aoTempBasis
-			/*19*/ 0,0,0,0,
-			/*20*/ 0,0,0,0
+			/* 5*/ scene[0][0], scene[0][1], scene[0][2], scene[0][3],
+			/* 6*/ scene[1][0], scene[1][1], scene[1][2], scene[1][3],
+			/* 7*/ scene[2][0], scene[2][1], scene[2][2], scene[2][3],
+			/* 8*/ scene[3][0], scene[3][1], scene[3][2], scene[3][3],
+			/* 9*/ scene[4][0], scene[4][1], scene[4][2], scene[4][3],
 		];
 	}
 	
