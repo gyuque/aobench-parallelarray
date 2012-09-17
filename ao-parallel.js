@@ -443,12 +443,9 @@
 		// Do monte carlo sampling for secondary rays
 		for (j = 0; j < ntheta; ++j) {
 			for (i = 0; i < nphi; ++i) {
-				var theta = sqrt(drand48());
-				var phi   = pi2 * drand48();
-
 				outArray[ai++] = x | (y << 12);
-				outArray[ai++] = theta;
-				outArray[ai++] = phi;
+				outArray[ai++] = drand48();
+				outArray[ai++] = drand48();
 
 				outArray[ai++] = isect.n.x;
 				outArray[ai++] = isect.n.y;
@@ -524,8 +521,8 @@
 		var sxsy = el[0];
 		if (sxsy == 0) {return[0,0];}
 
-		var theta = el[1];
-		var phi = el[2];
+		var theta = Math.sqrt(el[1]);
+		var phi = 3.14159 * 2 * el[2];
 
 		var x = Math.cos(phi) * theta;
 		var y = Math.sin(phi) * theta;
@@ -660,7 +657,6 @@
 		var isect = new Isect();
 	    var fimg = allocateFloats(w * h * 3);
 		var aoQueue = new Float32Array(w*h * nsubsamples*nsubsamples * NAO_SAMPLES*NAO_SAMPLES * 9);
-		console.log(aoQueue.length)
 		var aqIndex = 0;
 		var aoCount = 0;
 
