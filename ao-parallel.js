@@ -372,6 +372,17 @@
 		outCanvas.width  = WIDTH;
 		outCanvas.height = HEIGHT;
 		
+		/*
+		var pa = new ParallelArray([ [[0,1],[2,3],[4,5]], [[6,7],[8,9],[10,11]], [[12,13],[14,15],[16,17]] ]);
+		var pa2 = pa.combine(function(i) {
+			var topIndex = i[0] - 0;
+			var a = this.get(topIndex).get(2).get(1);
+			return a;
+		});
+		*/
+		
+		console.log(pa2)
+		
 		function startAO(par) {
 			var g = outCanvas.getContext("2d");
 		
@@ -468,53 +479,88 @@
 						// Make normalized coordinate
 						var px = (x + (u / nsubsamples) - (w / 2.0)) / (w / 2.0);
 						var py = -(y + (v / nsubsamples) - (h / 2.0)) / (h / 2.0);
+						var elem = paSource[paPos++];
 						
 						// Ray
 						// Eye position
-						paSource[paPos++] = 0.0;
-						paSource[paPos++] = 0.0;
-						paSource[paPos++] = 0.0;
-						++paPos;
+						elem[0] = 0.0;
+						elem[1] = 0.0;
+						elem[2] = 0.0;
 						
 						// Ray direction from the eye
 						vec[0] = px;
 						vec[1] = py;
 						vec[2] = -1.0;
 						vnormalize(vec);
-						paSource[paPos++] = vec[0];
-						paSource[paPos++] = vec[1];
-						paSource[paPos++] = vec[2];
-						++paPos;
+						elem[4] = vec[0];
+						elem[5] = vec[1];
+						elem[6] = vec[2];
 
 						// Isect
-						paPos += 4;
-						paPos += 4;
-						
-						paSource[paPos++] = 1.0e+17;
-						paSource[paPos++] = 0;
-						paPos += 2;
+						elem[16] = 1.0e+17;
+						elem[17] = 0;
 
 						// Out color
-						paSource[paPos++] = 0;
-						paSource[paPos++] = 0;
-						paSource[paPos++] = 0;
-						++paPos;
-						
-						paPos += 60;
+						elem[20] = 0;
+						elem[21] = 0;
+						elem[22] = 0;
 					}
 				}
 				
 			} // end line
 //console.log(paPos, w * nsubsamples * nsubsamples * 84)
-	//		var parArray = new ParallelArray(paSource);
-			var parArray = new ParallelArray([[0, 1], [2, 3]]);
+			var parArray = new ParallelArray(paSource);
+	//		var parArray = new ParallelArray([[0, 1], [2, 3]]);
+	function ax() {
+		return 1;
+	}
 			var paResults = parArray.combine(function(i){
 				var j = this.get(i);
-				var k = j[0] + 1;
-				var l = j[1] + 1;
-				return [k, l];
+				
+				var rayPos   = [j[0], j[1], j[2], j[3]];
+				var rayDir   = [j[4], j[5], j[6], j[7]];
+				
+				var isectPos = [j[8], j[9], j[10], j[11]];
+				var isectN   = [j[12], j[13], j[14], j[15]];
+				var isectF   = [j[16], j[17], j[18], j[19]];
+				var x = ax();
+				
+				return [
+				/* 0*/ x,0,0,0, // origin position
+				/* 1*/ 0,0,0,0, // normal
+
+				// Isect
+				/* 2*/ 0,0,0,0, // position
+				/* 3*/ 0,0,0,0, // normal
+				/* 4*/ 0,0,0,0, // distance, flag
+
+				// Out color
+				/* 5*/ 0,0,0,0,
+
+				// Scene
+				/* 6*/ 0,0,0,0,
+				/* 7*/ 0,0,0,0,
+				/* 8*/ 0,0,0,0,
+				/* 9*/ 0,0,0,0,
+				/*10*/ 0,0,0,0,
+
+				// Work area
+				/*11*/ 0,0,0,0, // rsTempVec
+
+				/*12*/ 0,0,0,0, // aoTempRay
+				/*13*/ 0,0,0,0,
+
+				/*14*/ 0,0,0,0, // aoTemoOrigin
+
+				/*15*/ 0,0,0,0, // aoTempIsect
+				/*16*/ 0,0,0,0,
+				/*17*/ 0,0,0,0,
+
+				/*18*/ 0,0,0,0, // aoTempBasis
+				/*19*/ 0,0,0,0,
+				/*20*/ 0,0,0,0
+				];
 			})
-			console.log(parArray, paResults);
 			throw 456;
 			
 			var paPos = 0;
@@ -582,7 +628,8 @@
 		// Setup elements
 		var elements = [];
 		for (var i = 0;i < length;++i) {
-			Array.prototype.push.apply(elements, createPARenderElement(scene));
+//			Array.prototype.push.apply(elements, createPARenderElement(scene))
+			elements.push(createPARenderElement(scene));
 		}
 		
 		return elements;
