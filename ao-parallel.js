@@ -446,8 +446,7 @@
 				var theta = sqrt(drand48());
 				var phi   = pi2 * drand48();
 
-				outArray[ai++] = x;
-				outArray[ai++] = y;
+				outArray[ai++] = x | (y << 12);
 				outArray[ai++] = theta;
 				outArray[ai++] = phi;
 
@@ -522,21 +521,19 @@
 		var topIndex = index[0] - 0;
 		var el = this.get(topIndex);
 
-		var sx = el[0];
-		var sy = el[1];
-		if (sx == 0 && sy == 0) {return[0,0,0];}
-		var xy = sx*1000 + sy;
+		var sxsy = el[0];
+		if (sxsy == 0) {return[0,0];}
 
-		var theta = el[2];
-		var phi = el[3];
+		var theta = el[1];
+		var phi = el[2];
 
 		var x = Math.cos(phi) * theta;
 		var y = Math.sin(phi) * theta;
 		var z = Math.sqrt(1.0 - theta * theta);
 		
-		var bZ_x = el[4];
-		var bZ_y = el[5];
-		var bZ_z = el[6];
+		var bZ_x = el[3];
+		var bZ_y = el[4];
+		var bZ_z = el[5];
 
 		var bY_x = 0;
 		var bY_y = 0;
@@ -569,9 +566,9 @@
 		z2 /= bYlen;
 		
 		
-		var ox = el[7];
-		var oy = el[8];
-		var oz = el[9];
+		var ox = el[6];
+		var oy = el[7];
+		var oz = el[8];
 
 		var rdx = x * bX_x + y * x2 + z * bZ_x;
 		var rdy = x * bX_y + y * y2 + z * bZ_y;
@@ -644,7 +641,7 @@
 			
 		}
 		
-		return [sx, sy, occ];
+		return [sxsy, occ];
 	}
 
 	function parRender(img, w, h, nsubsamples){
@@ -662,8 +659,8 @@
 		var ray = new Ray();
 		var isect = new Isect();
 	    var fimg = allocateFloats(w * h * 3);
-		var aoQueue = new Float32Array(w*h * nsubsamples*nsubsamples * NAO_SAMPLES*NAO_SAMPLES * 10);
-		//console.log(aoQueue.length)
+		var aoQueue = new Float32Array(w*h * nsubsamples*nsubsamples * NAO_SAMPLES*NAO_SAMPLES * 9);
+		console.log(aoQueue.length)
 		var aqIndex = 0;
 		var aoCount = 0;
 
@@ -705,31 +702,32 @@
 
 			}
 		}
-	
+
 		var aoLenPerSample = NAO_SAMPLES*NAO_SAMPLES; 
 		var paAO = new ParallelArray(aoQueue);
-		var paAOResult  = paAO.partition(10).combine(parCalcAO);
+		var paAOResult  = paAO.partition(9).combine(parCalcAO);
 
 		var paOccCounts = paAOResult.partition(aoLenPerSample).combine(function(index) {
 			var a = this.get(index[0] - 0);
 			var nDirs = a.length;
 			var occ = 0;
 			for (var di = 0;di < nDirs;di++) {
-				occ += a[di][2];
+				occ += a[di][1];
 			}
 			
 			var iocc = (nDirs - occ) / nDirs;
-			return [a[0][0], a[0][1], iocc];
+			return [a[0][0], iocc];
 		});
-		
-		
+
 		var q;
 		var oIndex = 0;
 		var intensity;
 		var farr = paOccCounts.flatten();
+		
 		for (q = 0;q < aoCount;++q) {
-			x = farr.get(oIndex++) | 0;
-			y = farr.get(oIndex++) | 0;
+			var xy = farr.get(oIndex++) | 0;
+			x = xy & 0xfff;
+			y = xy >> 12;
 			var intensity = farr.get(oIndex++);
 			fimg[3 * (y * w + x) + 0] += intensity;
 			fimg[3 * (y * w + x) + 1] += intensity;
