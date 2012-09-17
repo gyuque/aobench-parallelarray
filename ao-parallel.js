@@ -647,9 +647,6 @@
 	}
 
 	function parRender(img, w, h, nsubsamples){
-		
-		
-		
 		// Work areas (to suppress mass allocation)
 		var rsTempVec = new Vec();
 		var aoRayTemp = new Ray();
@@ -665,7 +662,7 @@
 		var isect = new Isect();
 	    var fimg = allocateFloats(w * h * 3);
 		var aoQueue = new Float32Array(w*h * nsubsamples*nsubsamples * NAO_SAMPLES*NAO_SAMPLES * 10);
-		console.log(aoQueue.length)
+		//console.log(aoQueue.length)
 		var aqIndex = 0;
 		var aoCount = 0;
 
@@ -698,29 +695,13 @@
 						rayPlaneIntersect (isect, ray, gScene.plane);
 
 						if (isect.hit) {
-							// Do secondary ray tracing
-//							ambientOcclusion(gScene, col, isect, rsTempVec, aoRayTemp, aoOrgTemp, aoIsectTemp, basisTemp);
+							// Prepare secondary ray tracing
 							aqIndex = addAOEntry(aoQueue, aqIndex, gScene, x, y, isect, aoOrgTemp, basisTemp);
 							++aoCount;
-//							aoQueue.push(x,y, isect.p.x, isect.p.y, isect.p.z, isect.n.x, isect.n.y, isect.n.z);
-							/*
-							fimg[3 * (y * w + x) + 0] += col.x;
-							fimg[3 * (y * w + x) + 1] += col.y;
-							fimg[3 * (y * w + x) + 2] += col.z;
-							*/
 						}
 					}
 				}
-				/*
-				var bufpos = 3 * (y * w + x);
-				fimg[bufpos + 0] /= nsubsamples * nsubsamples;
-				fimg[bufpos + 1] /= nsubsamples * nsubsamples;
-				fimg[bufpos + 2] /= nsubsamples * nsubsamples;
-				
-				img[bufpos + 0] = fimg[bufpos + 0] * 255;
-				img[bufpos + 1] = fimg[bufpos + 1] * 255;
-				img[bufpos + 2] = fimg[bufpos + 2] * 255;
-				*/
+
 			}
 		}
 	
@@ -768,242 +749,4 @@
 		}
 	}
 
-
-	/*
-	
-	
-	function parRender(img, w, h, nsubsamples)
-	{
-		var spheres = gScene.spheres;
-		var N_SPHERES = spheres.length;
-		var RENDER_ELEMENT_SIZE = 12;
-		var x, y, i;
-		var u, v, s;
-		var isect = new Isect();
-		var paIndex = [0, 0];
-		var col = new Vec();
-		var ray = new Ray();
-
-	    var fimg = allocateFloats(w * h * 3);
-		var elem_count = w * h * nsubsamples * nsubsamples * N_SPHERES;
-		var paSource = new Float32Array(elem_count * RENDER_ELEMENT_SIZE);
-
-		// Eye position
-		ray.org.x = 0.0;
-		ray.org.y = 0.0;
-		ray.org.z = 0.0;
-
-		var paPos = 0;
-		for (y = 0; y < h; ++y) {
-			for (x = 0; x < w; ++x) {
-				for (v = 0; v < nsubsamples; ++v) {
-	                for (u = 0; u < nsubsamples; ++u) {
-						for (s = 0;s < N_SPHERES;++s) {
-
-							// Make normalized coordinate
-							var px = (x + (u / nsubsamples) - (w / 2.0)) / (w / 2.0);
-							var py = -(y + (v / nsubsamples) - (h / 2.0)) / (h / 2.0);
-
-							// Ray direction from the eye
-							ray.dir.x = px;
-							ray.dir.y = py;
-							ray.dir.z = -1.0;
-							ray.dir.normalize();
-						
-							// Eye position
-							paSource[paPos++] = 0;
-							paSource[paPos++] = 0;
-							paSource[paPos++] = 0;
-							paSource[paPos++] = 0;
-							
-							// Ray direction from the eye
-							paSource[paPos++] = ray.dir.x;
-							paSource[paPos++] = ray.dir.y;
-							paSource[paPos++] = ray.dir.z;
-							paSource[paPos++] = 0;
-
-							paSource[paPos++] = spheres[s].center.x;
-							paSource[paPos++] = spheres[s].center.y;
-							paSource[paPos++] = spheres[s].center.z;
-							paSource[paPos++] = spheres[s].radius;
-						}
-					}
-				}
-				
-			} // end line
-		}
-		var paSphereRays = new ParallelArray(paSource);
-		paSphereRays.shape = [elem_count, RENDER_ELEMENT_SIZE];
-		paSphereRays.strides = [RENDER_ELEMENT_SIZE, 1];
-		var paSphereRaysResult  = paSphereRays.combine(parRaytraceSphere);
-		var flatRes = paSphereRaysResult.flatten();
-		return
-///
-		var RESULT_ELEMENT_SIZE = 7;
-		paPos = 0;
-		for (y = 0; y < h; ++y) {
-			for (x = 0; x < w; ++x) {
-				for (v = 0; v < nsubsamples; ++v) {
-					for (u = 0; u < nsubsamples; ++u) {
-						isect.t = 1.0e+17;
-						isect.hit = false;
-						col.x = col.y = col.z = 0;
-
-						for (s = 0;s < N_SPHERES;++s) {
-							var st = flatRes.get(paPos);
-//							console.log(st)
-							if (st > 0 && st < isect.t) {
-								isect.t = st;
-								isect.hit = true;
-								
-								isect.p.x = flatRes.get(paPos+1);
-								isect.p.y = flatRes.get(paPos+2);
-								isect.p.z = flatRes.get(paPos+3);
-
-								isect.n.x = flatRes.get(paPos+4);
-								isect.n.y = flatRes.get(paPos+5);
-								isect.n.z = flatRes.get(paPos+6);
-							}
-							paPos += RESULT_ELEMENT_SIZE;
-						}
-
-
-						// Ray direction from the eye
-						ray.dir.x = (x + (u / nsubsamples) - (w / 2.0)) / (w / 2.0);
-						ray.dir.y = -(y + (v / nsubsamples) - (h / 2.0)) / (h / 2.0);
-						ray.dir.z = -1.0;
-						ray.dir.normalize();
-						rayPlaneIntersect (isect, ray, gScene.plane);
-
-						if (isect.hit) {
-							col.x = 1;
-							col.y = 1;
-							col.z = 1;
-						}
-
-						fimg[3 * (y * w + x) + 0] += col.x;
-						fimg[3 * (y * w + x) + 1] += col.y;
-						fimg[3 * (y * w + x) + 2] += col.z;
-
-					}
-				}
-				
-				var bufpos = 3 * (y * w + x);
-				fimg[bufpos + 0] /= nsubsamples * nsubsamples;
-				fimg[bufpos + 1] /= nsubsamples * nsubsamples;
-				fimg[bufpos + 2] /= nsubsamples * nsubsamples;
-				
-				img[bufpos + 0] = fimg[bufpos + 0] * 255;
-				img[bufpos + 1] = fimg[bufpos + 1] * 255;
-				img[bufpos + 2] = fimg[bufpos + 2] * 255;
-
-			} // end line
-		}
-		
-
-	}
-	*/
-	
-	function parRaytraceSphere(i) {
-		var topIndex = i[0] - 0;
-		
-		// ----------------
-		// fetch parameters
-		var el = this.get(topIndex);
-		var ox = el[0];
-		var oy = el[1];
-		var oz = el[2];
-
-		var rdx = el[4];
-		var rdy = el[5];
-		var rdz = el[6];
-
-		var cx = el[8];
-		var cy = el[9];
-		var cz = el[10];
-		var R  = el[11];
-		// ----------------
-		
-		var rsx = ox - cx;
-		var rsy = oy - cy;
-		var rsz = oz - cz;
-		
-		var B = rsx*rdx + rsy*rdy + rsz*rdz;
-		var C = rsx*rsx + rsy*rsy + rsz*rsz - R * R;
-		var D = B * B - C;
-
-		var ret = [-1, 0,0,0, 0,0,0]
-		if (D > 0.0) {
-			var t = -B - Math.sqrt(D);
-			
-			if (t > 0.0) {
-				ret[0] = t;
-
-				ret[1] = ox + rdx * t;
-				ret[2] = oy + rdy * t;
-				ret[3] = oz + rdz * t;
-
-				ret[4] = ret[1] - cx;
-				ret[5] = ret[2] - cy;
-				ret[6] = ret[3] - cz;
-				
-				var nlen = Math.sqrt(ret[4]*ret[4] + ret[5]*ret[5] + ret[6]*ret[6]);
-				ret[4] /= nlen;
-				ret[5] /= nlen;
-				ret[6] /= nlen;
-			}
-		}
-
-		return ret;
-	}
-	
-	function basisTest() {
-		var b = new Vec();
-		b.x = Math.random() * 2 - 1;
-		b.y = Math.random() * 2 - 1;
-		b.z = Math.random() * 2 - 1;
-		b.normalize();
-		var bZ_x = b.x;
-		var bZ_y = b.y;
-		var bZ_z = b.z;
-
-		var bY_x = 0;
-		var bY_y = 0;
-		var bY_z = 0;
-		if ((bZ_x < 0.6) && (bZ_x > -0.6)) {
-			bY_x = 1.0;
-		} else if ((bZ_y < 0.6) && (bZ_y > -0.6)) {
-			bY_y = 1.0;
-		} else if ((bZ_z < 0.6) && (bZ_z > -0.6)) {
-			bY_z = 1.0;
-		} else {
-			bY_x = 1.0;
-		}
-
-		var bX_x = bY_y * bZ_z - bY_z * bZ_y;
-		var bX_y = bY_z * bZ_x - bY_x * bZ_z;
-		var bX_z = bY_x * bZ_y - bY_y * bZ_x;
-		var bXlen = Math.sqrt(bX_x*bX_x + bX_y*bX_y + bX_z*bX_z);
-		bX_x /= bXlen;
-		bX_y /= bXlen;
-		bX_z /= bXlen;
-
-		bY_x = bZ_y * bX_z - bZ_z * bX_y;
-		bY_y = bZ_z * bX_x - bZ_x * bX_z;
-		bY_z = bZ_x * bX_y - bZ_y * bX_x;
-		var bYlen = Math.sqrt(bY_x*bY_x + bY_y*bY_y + bY_z*bY_z);
-		bY_x /= bYlen;
-		bY_y /= bYlen;
-		bY_z /= bYlen;
-		console.log(bYlen);
-		/*
-		console.log(bX_x, bX_y, bX_z)
-		console.log(bY_x, bY_y, bY_z)
-		console.log(bZ_x, bZ_y, bZ_z)
-		*/
-	}
-	/*
-	for (var i = 0;i < 1000;i++) {
-		basisTest();
-	}*/
 })();
